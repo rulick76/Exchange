@@ -1,9 +1,12 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Exchange.Client;
+using Exchange.Helpers;
 using Exchange.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 
 namespace Exchange.Controllers
 {
@@ -19,17 +22,69 @@ namespace Exchange.Controllers
             _logger = logger;
             _exchangeClient=exchangeClient;
         }
+
         [Route("rates")]
         [HttpGet]
-        public async Task<IActionResult> Get(string date)
+        public async Task<IActionResult> Get(string date,string format)
         {
-            List<Currency> currencies = new List<Currency>();
-            string response= await _exchangeClient.GetRates(date);
-            //foreach (var cur in response)
-            //{
-            //    currencies.Add(new Currency() { Symbol= cur.symbol,Name=cur.name, Price= cur.price});
-            //}
-            return Ok(response);
+            try
+            {
+                string response = await _exchangeClient.GetRates(date);
+                if (format == null)
+                {
+                    return Ok(response);
+                }
+                else if (format == "csv")
+                {
+                    string fileName = "GetRatesByDate.csv";
+                    string formattedStr= Formatter.FormatCsv(response);
+                    byte[] fileBytes = System.Text.Encoding.Unicode.GetBytes(formattedStr);
+                    return File(fileBytes, "text/csv", fileName);
+
+                }
+                else
+                {
+                    throw new Exception("Invalid format");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex.Message);
+                return BadRequest(ex.Message);
+            }
+
+        }
+
+        [Route("statistics")]
+        [HttpGet]
+        public async Task<IActionResult> Get(string date,int? interval,string format)
+        {
+            try
+            {
+                var response = await _exchangeClient.GetStatistics(date, interval);
+
+                if (format == null)
+                {
+                    return Ok(response);
+                }
+                else if (format == "csv")
+                {
+                    string fileName = "GetStatistics.csv";
+                    string formattedStr = Formatter.FormatCsv(response);
+                    byte[] fileBytes = System.Text.Encoding.Unicode.GetBytes(formattedStr);
+                    return File(fileBytes, "text/csv", fileName);
+                }
+                else
+                {
+                    throw new Exception("Invalid format");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex.Message);
+                return BadRequest(ex.Message);
+            }
+
         }
     }
 }
